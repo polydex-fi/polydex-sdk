@@ -133,6 +133,10 @@ export class Trade {
    */
   public readonly priceImpact: Percent
 
+  public readonly tokenIn: Token
+  public readonly tokenOut: Token
+  public readonly swapSequences: any[][]
+
   /**
    * Constructs an exact in trade with the given amount in and route
    * @param route route of the exact in trade
@@ -151,51 +155,71 @@ export class Trade {
     return new Trade(route, amountOut, TradeType.EXACT_OUTPUT)
   }
 
-  public constructor(route: Route, amount: CurrencyAmount, tradeType: TradeType) {
+  public constructor(route: Route, amount: CurrencyAmount, tradeType: TradeType, overrides?: any) {
     const amounts: TokenAmount[] = new Array(route.path.length)
     const nextPairs: Pair[] = new Array(route.pairs.length)
     if (tradeType === TradeType.EXACT_INPUT) {
       invariant(currencyEquals(amount.currency, route.input), 'INPUT')
       amounts[0] = wrappedAmount(amount, route.chainId)
       for (let i = 0; i < route.path.length - 1; i++) {
-        const pair = route.pairs[i]
-        const [outputAmount, nextPair] = pair.getOutputAmount(amounts[i])
-        amounts[i + 1] = outputAmount
-        nextPairs[i] = nextPair
+        try {
+          const pair = route.pairs[i]
+          const [outputAmount, nextPair] = pair.getOutputAmount(amounts[i])
+          amounts[i + 1] = outputAmount
+          nextPairs[i] = nextPair
+        } catch (e) {}
       }
     } else {
       invariant(currencyEquals(amount.currency, route.output), 'OUTPUT')
       amounts[amounts.length - 1] = wrappedAmount(amount, route.chainId)
       for (let i = route.path.length - 1; i > 0; i--) {
-        const pair = route.pairs[i - 1]
-        const [inputAmount, nextPair] = pair.getInputAmount(amounts[i])
-        amounts[i - 1] = inputAmount
-        nextPairs[i - 1] = nextPair
+        try {
+          const pair = route.pairs[i - 1]
+          const [inputAmount, nextPair] = pair.getInputAmount(amounts[i])
+          amounts[i - 1] = inputAmount
+          nextPairs[i - 1] = nextPair
+        } catch (e) {}
       }
     }
 
     this.route = route
     this.tradeType = tradeType
-    this.inputAmount =
-      tradeType === TradeType.EXACT_INPUT
-        ? amount
-        : route.input === MATIC
-        ? CurrencyAmount.ether(amounts[0].raw)
-        : amounts[0]
-    this.outputAmount =
-      tradeType === TradeType.EXACT_OUTPUT
-        ? amount
-        : route.output === MATIC
-        ? CurrencyAmount.ether(amounts[amounts.length - 1].raw)
-        : amounts[amounts.length - 1]
+    // this.inputAmount = overrides?.inputAmount ?? (
+    //   tradeType === TradeType.EXACT_INPUT
+    //     ? amount
+    //     : route.input === ETHER
+    //     ? CurrencyAmount.ether(amounts[0].raw)
+    //     : amounts[0]
+    // )
+    this.inputAmount = tradeType === TradeType.EXACT_INPUT
+      ? amount
+      : route.input === MATIC
+          ? CurrencyAmount.ether(overrides?.inputAmount?.raw ?? amounts[0].raw)
+          : (overrides?.inputAmount ?? amounts[0])
+    // this.outputAmount = overrides?.outputAmount ?? (
+    //   tradeType === TradeType.EXACT_OUTPUT
+    //     ? amount
+    //     : route.output === ETHER
+    //     ? CurrencyAmount.ether(amounts[amounts.length - 1].raw)
+    //     : amounts[amounts.length - 1]
+    // )
+    this.outputAmount = tradeType === TradeType.EXACT_OUTPUT
+      ? amount
+      : route.output === MATIC
+          ? CurrencyAmount.ether(overrides?.outputAmount?.raw ?? amounts[amounts.length - 1].raw)
+          : (overrides?.outputAmount ?? amounts[amounts.length - 1])
     this.executionPrice = new Price(
       this.inputAmount.currency,
       this.outputAmount.currency,
       this.inputAmount.raw,
       this.outputAmount.raw
     )
-    this.nextMidPrice = Price.fromRoute(new Route(nextPairs, route.input))
-    this.priceImpact = computePriceImpact(route.midPrice, this.inputAmount, this.outputAmount)
+    // this.nextMidPrice = nextPairs.length ? Price.fromRoute(new Route(nextPairs, route.input)) : {} as Price
+    this.nextMidPrice = {} as Price
+    this.priceImpact = overrides?.priceImpact ?? computePriceImpact(route.midPrice, this.inputAmount, this.outputAmount)
+    this.tokenIn = overrides?.tokenIn || {} as Token
+    this.tokenOut = overrides?.tokenOut || {} as Token
+    this.swapSequences = overrides?.swapSequences || []
   }
 
   /**

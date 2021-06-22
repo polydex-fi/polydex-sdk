@@ -4,7 +4,7 @@ import _Decimal from 'decimal.js-light'
 import _Big, { RoundingMode } from 'big.js'
 import toFormat from 'toformat'
 
-import { BigintIsh, Rounding } from '../../constants'
+import {BigintIsh, Rounding, ZERO} from '../../constants'
 import { ONE } from '../../constants'
 import { parseBigintIsh } from '../../utils'
 
@@ -123,9 +123,11 @@ export class Fraction {
     invariant(significantDigits > 0, `${significantDigits} is not positive.`)
 
     Decimal.set({ precision: significantDigits + 1, rounding: toSignificantRounding[rounding] })
-    const quotient = new Decimal(this.numerator.toString())
-      .div(this.denominator.toString())
-      .toSignificantDigits(significantDigits)
+    const quotient = JSBI.equal(this.denominator, ZERO)
+      ? new Decimal(0)
+      : new Decimal(this.numerator.toString())
+        .div(this.denominator.toString())
+        .toSignificantDigits(significantDigits)
     return quotient.toFormat(quotient.decimalPlaces(), format)
   }
 
@@ -139,6 +141,8 @@ export class Fraction {
 
     Big.DP = decimalPlaces
     Big.RM = toFixedRounding[rounding]
-    return new Big(this.numerator.toString()).div(this.denominator.toString()).toFormat(decimalPlaces, format)
+    return JSBI.equal(this.denominator, ZERO)
+      ? new Big(0)
+      : new Big(this.numerator.toString()).div(this.denominator.toString()).toFormat(decimalPlaces, format)
   }
 }

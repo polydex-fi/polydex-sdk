@@ -76,11 +76,23 @@ export class Pair {
     return new Price(this.token0, this.token1, this.tokenAmounts[0].raw, this.tokenAmounts[1].raw)
   }
 
+  public get token0SpotPrice(): Price {
+    const amount0 = JSBI.multiply(this.tokenAmounts[0].raw, JSBI.BigInt(this.token1.denormWeight || 50))
+    const amount1 = JSBI.multiply(this.tokenAmounts[1].raw, JSBI.BigInt(this.token0.denormWeight || 50))
+    return new Price(this.token0, this.token1, amount0, amount1)
+  }
+
   /**
    * Returns the current mid price of the pair in terms of token1, i.e. the ratio of reserve0 to reserve1
    */
   public get token1Price(): Price {
     return new Price(this.token1, this.token0, this.tokenAmounts[1].raw, this.tokenAmounts[0].raw)
+  }
+
+  public get token1SpotPrice(): Price {
+    const amount0 = JSBI.multiply(this.tokenAmounts[0].raw, JSBI.BigInt(this.token1.denormWeight || 50))
+    const amount1 = JSBI.multiply(this.tokenAmounts[1].raw, JSBI.BigInt(this.token0.denormWeight || 50))
+    return new Price(this.token1, this.token0, amount1, amount0)
   }
 
   /**
@@ -90,6 +102,10 @@ export class Pair {
   public priceOf(token: Token): Price {
     invariant(this.involvesToken(token), 'TOKEN')
     return token.equals(this.token0) ? this.token0Price : this.token1Price
+  }
+  public spotPriceOf(token: Token): Price {
+    invariant(this.involvesToken(token), 'TOKEN')
+    return token.equals(this.token0) ? this.token0SpotPrice : this.token1SpotPrice
   }
 
   /**
